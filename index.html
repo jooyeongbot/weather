@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKYWATCHER — 세계 날씨</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #05080f; --surface: #0c1220; --surface2: #111927;
+    --border: rgba(100,160,255,0.13); --accent: #4f9cff; --accent2: #7ec8ff;
+    --text: #d8eaff; --muted: #5a7499; --warn: #ffb347; --cold: #7ec8ff; --hot: #ff6b47;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; overflow-x: hidden; }
+  body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse 60% 40% at 20% 20%, rgba(79,156,255,0.06) 0%, transparent 60%), radial-gradient(ellipse 50% 60% at 80% 80%, rgba(126,200,255,0.04) 0%, transparent 60%); pointer-events: none; z-index: 0; }
+  .wrap { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 20px 80px; }
+
+  header { display: flex; align-items: flex-start; justify-content: space-between; padding: 28px 0 36px; border-bottom: 1px solid var(--border); margin-bottom: 40px; flex-wrap: wrap; gap: 12px; }
+  .logo { font-family: 'Bebas Neue', cursive; font-size: 2.4rem; letter-spacing: 0.1em; color: var(--accent2); text-shadow: 0 0 40px rgba(126,200,255,0.35); line-height: 1; }
+  .logo small { display: block; font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); letter-spacing: 0.28em; margin-top: 2px; }
+  .header-right { text-align: right; }
+  #clock { font-family: 'DM Mono', monospace; font-size: 1rem; color: var(--text); letter-spacing: 0.05em; }
+  .updated-at { font-family: 'DM Mono', monospace; font-size: 0.6rem; color: var(--muted); margin-top: 4px; }
+
+  .search-label { font-family: 'DM Mono', monospace; font-size: 0.66rem; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
+  .search-row { display: flex; gap: 10px; }
+  .search-input { flex: 1; max-width: 440px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 13px 18px; font-size: 0.95rem; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; transition: border-color .2s, box-shadow .2s; }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: rgba(79,156,255,.5); box-shadow: 0 0 0 3px rgba(79,156,255,.08); }
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 13px 24px; font-size: .88rem; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background .2s; white-space: nowrap; }
+  .btn:hover { background: var(--accent2); color: var(--bg); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 13px; font-size: .76rem; color: var(--muted); cursor: pointer; font-family: 'DM Mono', monospace; transition: all .2s; }
+  .chip:hover { border-color: var(--accent); color: var(--accent2); background: rgba(79,156,255,.06); }
+  .err { background: rgba(255,90,70,.08); border: 1px solid rgba(255,90,70,.2); border-radius: 8px; padding: 12px 16px; color: #ff8070; font-size: .82rem; margin-top: 10px; display: none; font-family: 'DM Mono', monospace; }
+
+  .sec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .sec-title { font-family: 'DM Mono', monospace; font-size: .66rem; letter-spacing: .2em; color: var(--muted); text-transform: uppercase; white-space: nowrap; }
+  .sec-line { flex: 1; height: 1px; background: var(--border); }
+
+  #detail { display: none; margin: 36px 0; animation: fadeUp .35s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
+  .detail-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px 36px; display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; position: relative; overflow: hidden; }
+  .detail-box::before { content:''; position:absolute; top:-50px; right:-50px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle, rgba(79,156,255,.08) 0%, transparent 70%); pointer-events:none; }
+  .d-city { font-family: 'Bebas Neue', cursive; font-size: 3rem; letter-spacing: .04em; line-height: 1; }
+  .d-country { font-family: 'DM Mono', monospace; font-size: .7rem; color: var(--muted); letter-spacing: .15em; margin-top: 4px; }
+  .d-desc { font-size: .9rem; color: var(--muted); margin-top: 10px; font-style: italic; }
+  .d-stats { display: flex; gap: 24px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .stat-lbl { font-family: 'DM Mono', monospace; font-size: .6rem; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 3px; }
+  .stat-val { font-size: 1rem; }
+  .d-icon { font-size: 3.2rem; }
+  .d-temp { font-family: 'Bebas Neue', cursive; font-size: 4.8rem; line-height: 1; }
+  .d-deg { font-family: 'DM Mono', monospace; font-size: .6rem; color: var(--muted); letter-spacing: .1em; margin-top: 2px; }
+
+  /* Hourly */
+  .hourly { display: flex; gap: 9px; overflow-x: auto; padding-bottom: 6px; margin-top: 20px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .h-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; text-align: center; min-width: 66px; flex-shrink: 0; }
+  .h-card.now { border-color: var(--accent); background: rgba(79,156,255,.07); }
+  .h-time { font-family: 'DM Mono', monospace; font-size: .62rem; color: var(--muted); }
+  .h-icon { font-size: 1.3rem; margin: 5px 0; }
+  .h-temp { font-size: .9rem; font-weight: 500; }
+
+  .world-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 11px; }
+  .w-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 17px; cursor: pointer; transition: all .22s; }
+  .w-card:hover { border-color: rgba(79,156,255,.4); transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,.35); }
+  .wc-city { font-family: 'Bebas Neue', cursive; font-size: 1.28rem; letter-spacing: .05em; line-height: 1; }
+  .wc-country { font-family: 'DM Mono', monospace; font-size: .58rem; color: var(--muted); letter-spacing: .1em; margin-bottom: 13px; }
+  .wc-row { display: flex; justify-content: space-between; align-items: flex-end; }
+  .wc-temp { font-family: 'Bebas Neue', cursive; font-size: 2.2rem; line-height: 1; }
+  .wc-icon { font-size: 1.85rem; }
+  .wc-desc { font-size: .7rem; color: var(--muted); margin-top: 3px; font-style: italic; }
+
+  .dots { display: inline-flex; gap: 3px; }
+  .dots span { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); animation: pulse 1.2s ease-in-out infinite; }
+  .dots span:nth-child(2){animation-delay:.2s} .dots span:nth-child(3){animation-delay:.4s}
+  @keyframes pulse { 0%,80%,100%{transform:scale(.6);opacity:.3} 40%{transform:scale(1);opacity:1} }
+
+  .c-cold{color:var(--cold)} .c-cool{color:#90d4ff} .c-mild{color:#a8e6a3} .c-warm{color:var(--warn)} .c-hot{color:var(--hot)}
+
+  footer { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 56px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .ft { font-family: 'DM Mono', monospace; font-size: .6rem; color: var(--muted); }
+  .ft span { color: var(--accent); }
+
+  @media(max-width:600px){.detail-box{grid-template-columns:1fr}.d-city{font-size:2.2rem}.d-temp{font-size:3.8rem}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">SKYWATCHER<small>// REAL-TIME GLOBAL WEATHER</small></div>
+    <div class="header-right">
+      <div id="clock">--:--:--</div>
+      <div class="updated-at" id="updated-at">데이터 로딩 중...</div>
+    </div>
+  </header>
+
+  <div style="margin-bottom:40px">
+    <div class="search-label">// 도시 검색 — 실시간 날씨 조회</div>
+    <div class="search-row">
+      <input class="search-input" id="inp" type="text" placeholder="도시명 입력 (Seoul, Tokyo, Paris, 서울...)" />
+      <button class="btn" id="searchBtn" onclick="doSearch()">조회</button>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div id="detail">
+    <div class="sec-head"><div class="sec-title">// 상세 날씨</div><div class="sec-line"></div></div>
+    <div class="detail-box">
+      <div>
+        <div class="d-city" id="d-city">—</div>
+        <div class="d-country" id="d-country">—</div>
+        <div class="d-desc" id="d-desc">—</div>
+        <div class="d-stats">
+          <div><div class="stat-lbl">체감온도</div><div class="stat-val" id="d-feels">—</div></div>
+          <div><div class="stat-lbl">습도</div><div class="stat-val" id="d-hum">—</div></div>
+          <div><div class="stat-lbl">풍속</div><div class="stat-val" id="d-wind">—</div></div>
+          <div><div class="stat-lbl">강수확률</div><div class="stat-val" id="d-rain">—</div></div>
+          <div><div class="stat-lbl">최저/최고</div><div class="stat-val" id="d-range">—</div></div>
+        </div>
+      </div>
+      <div style="text-align:center">
+        <div class="d-icon" id="d-icon">—</div>
+        <div class="d-temp" id="d-temp">—</div>
+        <div class="d-deg">°C</div>
+      </div>
+    </div>
+    <div class="sec-head" style="margin-top:24px"><div class="sec-title">// 24시간 예보</div><div class="sec-line"></div></div>
+    <div class="hourly" id="hourly"></div>
+  </div>
+
+  <div style="margin-top:40px">
+    <div class="sec-head"><div class="sec-title">// 세계 주요 도시 — 실시간</div><div class="sec-line"></div></div>
+    <div class="world-grid" id="grid"></div>
+  </div>
+
+  <footer>
+    <div class="ft">SKYWATCHER · 실시간 날씨 · 자동 업데이트</div>
+    <div class="ft">DATA BY <span>OPEN-METEO.COM</span> · FREE & NO API KEY</div>
+  </footer>
+</div>
+
+<script>
+const WMO = {
+  0:{icon:'☀️',desc:'맑음'},1:{icon:'🌤️',desc:'대체로 맑음'},2:{icon:'⛅',desc:'부분적 흐림'},
+  3:{icon:'☁️',desc:'흐림'},45:{icon:'🌫️',desc:'안개'},48:{icon:'🌫️',desc:'결빙 안개'},
+  51:{icon:'🌦️',desc:'가벼운 이슬비'},53:{icon:'🌦️',desc:'이슬비'},55:{icon:'🌧️',desc:'강한 이슬비'},
+  61:{icon:'🌧️',desc:'가벼운 비'},63:{icon:'🌧️',desc:'비'},65:{icon:'🌧️',desc:'강한 비'},
+  71:{icon:'🌨️',desc:'가벼운 눈'},73:{icon:'❄️',desc:'눈'},75:{icon:'❄️',desc:'폭설'},
+  77:{icon:'🌨️',desc:'진눈깨비'},80:{icon:'🌦️',desc:'소나기'},81:{icon:'🌧️',desc:'강한 소나기'},
+  82:{icon:'⛈️',desc:'폭우'},85:{icon:'🌨️',desc:'눈 소나기'},95:{icon:'⛈️',desc:'뇌우'},
+  96:{icon:'⛈️',desc:'우박 뇌우'},99:{icon:'⛈️',desc:'강한 우박 뇌우'}
+};
+const getW = c => WMO[c] || {icon:'🌡️', desc:'알 수 없음'};
+const tc = t => t<=0?'c-cold':t<=10?'c-cool':t<=22?'c-mild':t<=32?'c-warm':'c-hot';
+
+// Clock
+setInterval(()=>{ document.getElementById('clock').textContent = new Date().toLocaleTimeString('ko-KR'); }, 1000);
+
+// Cities
+const CITIES = [
+  {city:'서울',   country:'대한민국', lat:37.5665, lon:126.9780},
+  {city:'도쿄',   country:'일본',     lat:35.6762, lon:139.6503},
+  {city:'뉴욕',   country:'미국',     lat:40.7128, lon:-74.0060},
+  {city:'런던',   country:'영국',     lat:51.5074, lon:-0.1278},
+  {city:'파리',   country:'프랑스',   lat:48.8566, lon:2.3522},
+  {city:'두바이', country:'아랍에미리트', lat:25.2048, lon:55.2708},
+  {city:'시드니', country:'호주',     lat:-33.8688,lon:151.2093},
+  {city:'베이징', country:'중국',     lat:39.9042, lon:116.4074},
+  {city:'싱가포르',country:'싱가포르',lat:1.3521,  lon:103.8198},
+  {city:'방콕',   country:'태국',     lat:13.7563, lon:100.5018},
+  {city:'뭄바이', country:'인도',     lat:19.0760, lon:72.8777},
+  {city:'모스크바',country:'러시아',  lat:55.7558, lon:37.6173},
+  {city:'베를린', country:'독일',     lat:52.5200, lon:13.4050},
+  {city:'로마',   country:'이탈리아', lat:41.9028, lon:12.4964},
+  {city:'이스탄불',country:'터키',    lat:41.0082, lon:28.9784},
+  {city:'카이로', country:'이집트',   lat:30.0444, lon:31.2357},
+  {city:'토론토', country:'캐나다',   lat:43.6532, lon:-79.3832},
+  {city:'상파울루',country:'브라질',  lat:-23.5505,lon:-46.6333},
+];
+const QUICK = ['서울','도쿄','뉴욕','런던','파리','두바이','시드니'];
+
+// Quick chips
+document.getElementById('chips').innerHTML = QUICK.map(c =>
+  `<button class="chip" onclick="searchByName('${c}')">${c}</button>`).join('');
+
+// Open-Meteo fetch
+async function fetchWeather(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation_probability&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('fetch error');
+  return r.json();
+}
+
+async function geocode(name) {
+  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=ko`);
+  const d = await r.json();
+  if (!d.results?.length) throw new Error('not found');
+  const l = d.results[0];
+  return { city: l.name, country: l.country || l.country_code, lat: l.latitude, lon: l.longitude };
+}
+
+// Render detail card
+async function showDetail(cityName, countryName, lat, lon) {
+  const det = document.getElementById('detail');
+  det.style.display = 'block';
+  document.getElementById('d-city').textContent = cityName;
+  document.getElementById('d-country').textContent = countryName;
+  document.getElementById('d-desc').textContent = '로딩 중...';
+  document.getElementById('d-icon').textContent = '⏳';
+  document.getElementById('d-temp').textContent = '—';
+  document.getElementById('hourly').innerHTML = '';
+  det.scrollIntoView({behavior:'smooth', block:'start'});
+
+  try {
+    const d = await fetchWeather(lat, lon);
+    const cur = d.current;
+    const w = getW(cur.weather_code);
+    const temp = Math.round(cur.temperature_2m);
+
+    document.getElementById('d-desc').textContent = w.desc;
+    document.getElementById('d-icon').textContent = w.icon;
+    const te = document.getElementById('d-temp');
+    te.textContent = temp; te.className = `d-temp ${tc(temp)}`;
+    document.getElementById('d-feels').textContent = Math.round(cur.apparent_temperature) + '°C';
+    document.getElementById('d-hum').textContent   = cur.relative_humidity_2m + '%';
+    document.getElementById('d-wind').textContent  = Math.round(cur.wind_speed_10m) + ' km/h';
+    document.getElementById('d-rain').textContent  = (cur.precipitation_probability ?? 0) + '%';
+    document.getElementById('d-range').textContent = Math.round(d.daily.temperature_2m_min[0]) + '° / ' + Math.round(d.daily.temperature_2m_max[0]) + '°';
+
+    // Hourly
+    const hourly = document.getElementById('hourly');
+    const nowH = new Date().getHours();
+    hourly.innerHTML = d.hourly.time.slice(0,24).map((t,i) => {
+      const h = new Date(t).getHours();
+      const wh = getW(d.hourly.weather_code[i]);
+      const ht = Math.round(d.hourly.temperature_2m[i]);
+      return `<div class="h-card ${h===nowH?'now':''}">
+        <div class="h-time">${String(h).padStart(2,'0')}:00</div>
+        <div class="h-icon">${wh.icon}</div>
+        <div class="h-temp ${tc(ht)}">${ht}°</div>
+      </div>`;
+    }).join('');
+    hourly.querySelector('.now')?.scrollIntoView({inline:'center', behavior:'smooth'});
+  } catch(e) {
+    document.getElementById('d-desc').textContent = '날씨 정보를 불러올 수 없습니다.';
+  }
+}
+
+// World grid
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = CITIES.map((c,i) => `
+    <div class="w-card" id="wc-${i}" onclick="showDetail('${c.city}','${c.country}',${c.lat},${c.lon})">
+      <div class="wc-city">${c.city}</div>
+      <div class="wc-country">${c.country}</div>
+      <div style="color:var(--muted);font-size:.75rem;font-family:'DM Mono',monospace">
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>`).join('');
+
+  // Load each city
+  CITIES.forEach(async (c, i) => {
+    try {
+      const d = await fetchWeather(c.lat, c.lon);
+      const cur = d.current;
+      const w = getW(cur.weather_code);
+      const t = Math.round(cur.temperature_2m);
+      document.getElementById(`wc-${i}`).innerHTML = `
+        <div class="wc-city">${c.city}</div>
+        <div class="wc-country">${c.country}</div>
+        <div class="wc-row">
+          <div>
+            <div class="wc-temp ${tc(t)}">${t}°</div>
+            <div class="wc-desc">${w.desc}</div>
+          </div>
+          <div class="wc-icon">${w.icon}</div>
+        </div>`;
+    } catch {
+      document.getElementById(`wc-${i}`).querySelector('div:last-child').textContent = '오류';
+    }
+  });
+
+  const now = new Date();
+  document.getElementById('updated-at').textContent =
+    `업데이트: ${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${now.toLocaleTimeString('ko-KR')}`;
+}
+
+// Search
+async function doSearch() {
+  const q = document.getElementById('inp').value.trim();
+  if (!q) return;
+  const btn = document.getElementById('searchBtn');
+  const errEl = document.getElementById('err');
+  btn.disabled = true; btn.textContent = '검색 중...';
+  errEl.style.display = 'none';
+  try {
+    const geo = await geocode(q);
+    await showDetail(geo.city, geo.country, geo.lat, geo.lon);
+  } catch {
+    errEl.textContent = '⚠ 도시를 찾을 수 없습니다. 영문 도시명으로 시도해보세요.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '조회';
+  }
+}
+
+function searchByName(name) {
+  document.getElementById('inp').value = name;
+  doSearch();
+}
+
+document.getElementById('inp').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
+
+// Init
+buildGrid();
+</script>
+</body>
+</html>
