@@ -66,8 +66,10 @@
   .weekly { display: grid; grid-template-columns: repeat(7, 1fr); gap: 9px; margin-top: 20px; }
   @media(max-width:700px){ .weekly { grid-template-columns: repeat(4,1fr); } }
   @media(max-width:400px){ .weekly { grid-template-columns: repeat(2,1fr); } }
-  .wd-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 10px; text-align: center; }
+  .wd-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 10px; text-align: center; cursor: pointer; transition: all .2s; }
+  .wd-card:hover { border-color: rgba(79,156,255,.35); }
   .wd-card.today { border-color: var(--accent); background: rgba(79,156,255,.07); }
+  .wd-card.selected { border-color: var(--accent2); background: rgba(126,200,255,.12); box-shadow: 0 0 12px rgba(126,200,255,.15); }
   .wd-day { font-family: 'DM Mono', monospace; font-size: .62rem; color: var(--muted); margin-bottom: 4px; }
   .wd-icon { font-size: 1.4rem; margin: 5px 0; }
   .wd-range { font-size: .82rem; font-weight: 500; }
@@ -139,7 +141,7 @@
         <div class="d-deg">°C</div>
       </div>
     </div>
-    <div class="sec-head" style="margin-top:24px"><div class="sec-title">// 24시간 예보</div><div class="sec-line"></div></div>
+    <div class="sec-head" style="margin-top:24px"><div class="sec-title">// 24시간 예보</div><div class="sec-line"></div><div id="hourly-date" style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--accent2);white-space:nowrap;"></div></div>
     <div class="hourly" id="hourly"></div>
     <div class="sec-head" style="margin-top:28px"><div class="sec-title">// 7일 예보</div><div class="sec-line"></div></div>
     <div class="weekly" id="weekly"></div>
@@ -169,6 +171,48 @@ const WMO = {
 };
 const getW = c => WMO[c] || {icon:'🌡️', desc:'알 수 없음'};
 const tc = t => t<=0?'c-cold':t<=10?'c-cool':t<=22?'c-mild':t<=32?'c-warm':'c-hot';
+
+let lastWeatherData = null;
+
+function renderHourly(dayIndex) {
+  if (!lastWeatherData) return;
+  const d = lastWeatherData;
+  const DAYS = ['일','월','화','수','목','금','토'];
+  const date = d.daily.time[dayIndex];
+  const isToday = dayIndex === 0;
+  const nowH = new Date().getHours();
+
+  // 해당 날짜의 시간대 슬라이스 (하루 = 24개)
+  const start = dayIndex * 24;
+  const times = d.hourly.time.slice(start, start + 24);
+
+  document.getElementById('hourly-date').textContent =
+    isToday ? '오늘' : `${date} (${DAYS[new Date(date).getDay()]})`;
+
+  document.getElementById('hourly').innerHTML = times.map((t, i) => {
+    const idx = start + i;
+    const h = new Date(t).getHours();
+    const wh = getW(d.hourly.weather_code[idx]);
+    const ht = Math.round(d.hourly.temperature_2m[idx]);
+    const isNow = isToday && h === nowH;
+    return `<div class="h-card ${isNow ? 'now' : ''}">
+      <div class="h-time">${String(h).padStart(2,'0')}:00</div>
+      <div class="h-icon">${wh.icon}</div>
+      <div class="h-temp ${tc(ht)}">${ht}°</div>
+    </div>`;
+  }).join('');
+
+  if (isToday) {
+    document.getElementById('hourly').querySelector('.now')?.scrollIntoView({inline:'center', behavior:'smooth'});
+  } else {
+    document.getElementById('hourly').scrollLeft = 0;
+  }
+
+  // 선택된 카드 하이라이트
+  document.querySelectorAll('.wd-card').forEach((el, i) => {
+    el.classList.toggle('selected', i === dayIndex);
+  });
+}
 
 // Clock
 setInterval(()=>{ document.getElementById('clock').textContent = new Date().toLocaleTimeString('ko-KR'); }, 1000);
@@ -245,32 +289,22 @@ async function showDetail(cityName, countryName, lat, lon) {
     document.getElementById('d-rain').textContent  = (cur.precipitation_probability ?? 0) + '%';
     document.getElementById('d-range').textContent = Math.round(d.daily.temperature_2m_min[0]) + '° / ' + Math.round(d.daily.temperature_2m_max[0]) + '°';
 
-    // Hourly
-    const hourly = document.getElementById('hourly');
-    const nowH = new Date().getHours();
-    hourly.innerHTML = d.hourly.time.slice(0,24).map((t,i) => {
-      const h = new Date(t).getHours();
-      const wh = getW(d.hourly.weather_code[i]);
-      const ht = Math.round(d.hourly.temperature_2m[i]);
-      return `<div class="h-card ${h===nowH?'now':''}">
-        <div class="h-time">${String(h).padStart(2,'0')}:00</div>
-        <div class="h-icon">${wh.icon}</div>
-        <div class="h-temp ${tc(ht)}">${ht}°</div>
-      </div>`;
-    }).join('');
-    hourly.querySelector('.now')?.scrollIntoView({inline:'center', behavior:'smooth'});
+    // 데이터 저장 후 렌더링
+    lastWeatherData = d;
+
+    // Hourly (오늘 기준)
+    renderHourly(0);
 
     // Weekly
     const weekly = document.getElementById('weekly');
     const DAYS = ['일','월','화','수','목','금','토'];
-    const todayIdx = new Date().getDay();
     weekly.innerHTML = d.daily.time.map((date, i) => {
       const wd = getW(d.daily.weather_code[i]);
       const tmin = Math.round(d.daily.temperature_2m_min[i]);
       const tmax = Math.round(d.daily.temperature_2m_max[i]);
       const rain = d.daily.precipitation_probability_max[i] ?? 0;
       const dayName = i === 0 ? '오늘' : DAYS[new Date(date).getDay()];
-      return `<div class="wd-card ${i===0?'today':''}">
+      return `<div class="wd-card ${i===0?'today selected':''}" onclick="renderHourly(${i})">
         <div class="wd-day">${dayName}</div>
         <div class="wd-icon">${wd.icon}</div>
         <div class="wd-range"><span>${tmin}°</span> / ${tmax}°</div>
