@@ -8,9 +8,9 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #ffffff; --surface: #f0f4fa; --surface2: #e8eef7;
-    --border: rgba(79,156,255,0.18); --accent: #4f9cff; --accent2: #2478e0;
-    --text: #1a2a3a; --muted: #7a96b0; --warn: #e08800; --cold: #2478e0; --hot: #d94f2a;
+    --bg: #05080f; --surface: #0c1220; --surface2: #111927;
+    --border: rgba(100,160,255,0.13); --accent: #4f9cff; --accent2: #7ec8ff;
+    --text: #d8eaff; --muted: #5a7499; --warn: #ffb347; --cold: #7ec8ff; --hot: #ff6b47;
   }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; overflow-x: hidden; }
   body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse 60% 40% at 20% 20%, rgba(79,156,255,0.06) 0%, transparent 60%), radial-gradient(ellipse 50% 60% at 80% 80%, rgba(126,200,255,0.04) 0%, transparent 60%); pointer-events: none; z-index: 0; }
@@ -61,6 +61,18 @@
   .h-time { font-family: 'DM Mono', monospace; font-size: .62rem; color: var(--muted); }
   .h-icon { font-size: 1.3rem; margin: 5px 0; }
   .h-temp { font-size: .9rem; font-weight: 500; }
+
+  /* Weekly */
+  .weekly { display: grid; grid-template-columns: repeat(7, 1fr); gap: 9px; margin-top: 20px; }
+  @media(max-width:700px){ .weekly { grid-template-columns: repeat(4,1fr); } }
+  @media(max-width:400px){ .weekly { grid-template-columns: repeat(2,1fr); } }
+  .wd-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 10px; text-align: center; }
+  .wd-card.today { border-color: var(--accent); background: rgba(79,156,255,.07); }
+  .wd-day { font-family: 'DM Mono', monospace; font-size: .62rem; color: var(--muted); margin-bottom: 4px; }
+  .wd-icon { font-size: 1.4rem; margin: 5px 0; }
+  .wd-range { font-size: .82rem; font-weight: 500; }
+  .wd-range span { color: var(--muted); font-size: .72rem; }
+  .wd-rain { font-family: 'DM Mono', monospace; font-size: .6rem; color: var(--accent); margin-top: 3px; }
 
   .world-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 11px; }
   .w-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 17px; cursor: pointer; transition: all .22s; }
@@ -129,6 +141,8 @@
     </div>
     <div class="sec-head" style="margin-top:24px"><div class="sec-title">// 24시간 예보</div><div class="sec-line"></div></div>
     <div class="hourly" id="hourly"></div>
+    <div class="sec-head" style="margin-top:28px"><div class="sec-title">// 7일 예보</div><div class="sec-line"></div></div>
+    <div class="weekly" id="weekly"></div>
   </div>
 
   <div style="margin-top:40px">
@@ -188,7 +202,7 @@ document.getElementById('chips').innerHTML = QUICK.map(c =>
 
 // Open-Meteo fetch
 async function fetchWeather(lat, lon) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation_probability&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation_probability&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&forecast_days=7&timezone=auto`;
   const r = await fetch(url);
   if (!r.ok) throw new Error('fetch error');
   return r.json();
@@ -212,6 +226,7 @@ async function showDetail(cityName, countryName, lat, lon) {
   document.getElementById('d-icon').textContent = '⏳';
   document.getElementById('d-temp').textContent = '—';
   document.getElementById('hourly').innerHTML = '';
+  document.getElementById('weekly').innerHTML = '';
   det.scrollIntoView({behavior:'smooth', block:'start'});
 
   try {
@@ -244,6 +259,24 @@ async function showDetail(cityName, countryName, lat, lon) {
       </div>`;
     }).join('');
     hourly.querySelector('.now')?.scrollIntoView({inline:'center', behavior:'smooth'});
+
+    // Weekly
+    const weekly = document.getElementById('weekly');
+    const DAYS = ['일','월','화','수','목','금','토'];
+    const todayIdx = new Date().getDay();
+    weekly.innerHTML = d.daily.time.map((date, i) => {
+      const wd = getW(d.daily.weather_code[i]);
+      const tmin = Math.round(d.daily.temperature_2m_min[i]);
+      const tmax = Math.round(d.daily.temperature_2m_max[i]);
+      const rain = d.daily.precipitation_probability_max[i] ?? 0;
+      const dayName = i === 0 ? '오늘' : DAYS[new Date(date).getDay()];
+      return `<div class="wd-card ${i===0?'today':''}">
+        <div class="wd-day">${dayName}</div>
+        <div class="wd-icon">${wd.icon}</div>
+        <div class="wd-range"><span>${tmin}°</span> / ${tmax}°</div>
+        <div class="wd-rain">${rain}%</div>
+      </div>`;
+    }).join('');
   } catch(e) {
     document.getElementById('d-desc').textContent = '날씨 정보를 불러올 수 없습니다.';
   }
